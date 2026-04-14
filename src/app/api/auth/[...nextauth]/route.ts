@@ -20,17 +20,6 @@ const handler = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      profile(profile) {
-        return {
-          id: profile.sub,
-          email: profile.email,
-          firstName: profile.given_name,
-          lastName: profile.family_name || '',
-          profileImage: profile.picture,
-          emailVerified: profile.email_verified ? new Date() : null,
-          role: 'USER',
-        }
-      },
     }),
     Credentials({
       name: 'credentials',
@@ -42,55 +31,24 @@ const handler = NextAuth({
         if (!credentials?.email || !credentials?.password) {
           return null
         }
-
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
         })
-
-        if (!user || !user.password) {
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
+        if (!user || !user.password) return null
+        const isValid = await bcrypt.compare(
           credentials.password as string,
           user.password
         )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
+        if (!isValid) return null
         return {
           id: user.id,
           email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImage: user.profileImage,
-          role: user.role,
-        }
+          name: `${user.firstName} ${user.lastName}`,
+          image: user.profileImage,
+        } as any
       },
     }),
   ],
-  callbacks: {
-    async session({ session, token }: { session: any; token: any }) {
-      if (token) {
-        session.user.id = token.id
-        session.user.firstName = token.firstName
-        session.user.lastName = token.lastName
-        session.user.role = token.role
-      }
-      return session
-    },
-    async jwt({ token, user }: { token: any; user: any }) {
-      if (user) {
-        token.id = user.id
-        token.firstName = user.firstName
-        token.lastName = user.lastName
-        token.role = user.role
-      }
-      return token
-    },
-  },
-})
+} as any)
 
 export { handler as GET, handler as POST }
