@@ -1,12 +1,10 @@
 import NextAuth from 'next-auth'
-import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
-export const authOptions: any = {
-  adapter: PrismaAdapter(prisma) as any,
+const handler = NextAuth({
   session: {
     strategy: 'jwt',
   },
@@ -31,26 +29,28 @@ export const authOptions: any = {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
-        if (!user || !user.password) return null
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
-        if (!isValid) return null
-        return {
-          id: user.id,
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
-          image: user.profileImage,
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          })
+          if (!user || !user.password) return null
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          )
+          if (!isValid) return null
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            image: user.profileImage,
+          }
+        } catch {
+          return null
         }
       },
     }),
   ],
-}
-
-const handler = NextAuth(authOptions)
+} as any)
 
 export { handler as GET, handler as POST }
