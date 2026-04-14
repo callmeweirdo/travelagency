@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,15 +14,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Plane, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
-
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({ email: '', password: '' })
@@ -32,21 +27,22 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        email: formData.email,
-        password: formData.password,
-        callbackUrl,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       })
-      if (result?.error) {
+      const data = await res.json()
+      if (!res.ok) {
         toast({
           title: 'Error',
-          description: 'Invalid email or password',
+          description: data.error || 'Login failed',
           variant: 'destructive',
         })
       } else {
+        localStorage.setItem('token', data.token)
         toast({ title: 'Welcome back!' })
-        router.push(callbackUrl)
+        router.push('/dashboard')
       }
     } catch {
       toast({

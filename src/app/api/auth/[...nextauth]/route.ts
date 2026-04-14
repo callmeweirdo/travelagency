@@ -1,56 +1,71 @@
-import NextAuth from 'next-auth'
-import Google from 'next-auth/providers/google'
-import Credentials from 'next-auth/providers/credentials'
+// Auth API - Using simplified JWT approach for deployment
+// TODO: Re-enable full NextAuth when v5 stabilizes or downgrade to v4
+
+import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { sign } from 'jsonwebtoken'
 
-const handler = NextAuth({
-  session: {
-    strategy: 'jwt',
-  },
-  pages: {
-    signIn: '/login',
-    signOut: '/',
-    error: '/login',
-    newUser: '/register',
-  },
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    }),
-    Credentials({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials): Promise<any> {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-        try {
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-          })
-          if (!user || !user.password) return null
-          const isValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          )
-          if (!isValid) return null
-          return {
-            id: user.id,
-            email: user.email,
-            name: `${user.firstName} ${user.lastName}`,
-            image: user.profileImage,
-          }
-        } catch {
-          return null
-        }
-      },
-    }),
-  ],
-} as any)
+const JWT_SECRET =
+  process.env.NEXTAUTH_SECRET || 'dev-secret-change-in-production'
 
-export { handler as GET, handler as POST }
+export async function POST(req: Request) {
+  try {
+    const { email, password } = await req.json()
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Missing credentials' },
+        { status: 400 }
+      )
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    const isValid = await bcrypt.compare(password, user.password)
+
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    const token = sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        image: user.profileImage,
+      },
+      token,
+    })
+  } catch (error) {
+    console.error('Auth error:', error)
+    return NextResponse.json(
+      { error: 'Authentication failed' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({ status: 'Auth endpoint active' })
+}
