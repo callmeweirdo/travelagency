@@ -5,7 +5,7 @@ import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 
-const authOptions = {
+export const authOptions = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: 'jwt' as const,
@@ -123,6 +123,6 @@ const authOptions = {
   },
 }
 
-const handler = NextAuth(authOptions)
-
+// For NextAuth v5, we export the handler differently
+const handler = NextAuth(authOptions as any)
 export { handler as GET, handler as POST }
