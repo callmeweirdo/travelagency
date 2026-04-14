@@ -104,7 +104,7 @@ function FlightsContent() {
   })
 
   // Get unique airlines
-  const airlines = [...new Set(flights.map((f) => f.airline.name))]
+  const airlines = Array.from(new Set(flights.map((f) => f.airline.name)))
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString('en-NG', {

@@ -84,8 +84,8 @@ const AIRPORTS = {
   },
 }
 
-function generateMockFlights(params: z.infer<typeof searchSchema>) {
-  const flights = []
+function generateMockFlights(params: z.infer<typeof searchSchema>): any[] {
+  const flights: any[] = []
   const departureDate = new Date(params.departureDate)
   const basePrice = calculateBasePrice(params.origin, params.destination)
 
@@ -223,7 +223,7 @@ export async function GET(req: Request) {
         flights,
         searchParams: params,
         totalResults: flights.length,
-        airlines: [...new Set(flights.map((f) => f.airline.name))],
+        airlines: Array.from(new Set(flights.map((f) => f.airline.name))),
       },
     })
   } catch (error) {

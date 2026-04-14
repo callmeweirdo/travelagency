@@ -1,14 +1,14 @@
-import type { NextAuthConfig } from 'next-auth'
+import NextAuth from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 
-export const authConfig: NextAuthConfig = {
+const authOptions = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
-    strategy: 'jwt',
+    strategy: 'jwt' as const,
   },
   pages: {
     signIn: '/login',
@@ -122,3 +122,7 @@ export const authConfig: NextAuthConfig = {
     },
   },
 }
+
+const handler = NextAuth(authOptions)
+
+export { handler as GET, handler as POST }
