@@ -5,7 +5,7 @@ import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
-const handler = NextAuth({
+export const authOptions: any = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: 'jwt',
@@ -18,8 +18,8 @@ const handler = NextAuth({
   },
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
     Credentials({
       name: 'credentials',
@@ -27,7 +27,7 @@ const handler = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials): Promise<any> {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -45,10 +45,12 @@ const handler = NextAuth({
           email: user.email,
           name: `${user.firstName} ${user.lastName}`,
           image: user.profileImage,
-        } as any
+        }
       },
     }),
   ],
-} as any)
+}
+
+const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
