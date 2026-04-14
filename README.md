@@ -1,8 +1,8 @@
-# NaijaTravel Pro 🇳🇬
+# TravelAgency - NaijaTravel Pro 🇳🇬
 
 **Your Gateway to Seamless Nigerian & International Travel**
 
-A full-featured travel agency platform tailored for the Nigerian market, offering flight bookings, hotel reservations, tour packages, visa services, and travel insurance with Nigeria-specific payment solutions and localizations.
+A full-featured travel agency platform (travelagency) tailored for the Nigerian market, offering flight bookings, hotel reservations, tour packages, visa services, and travel insurance with Nigeria-specific payment solutions and localizations.
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
