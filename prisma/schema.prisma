@@ -1,0 +1,794 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?   // Nullable for OAuth users
+  
+  // Personal Info
+  firstName     String
+  lastName      String
+  phone         String?
+  phoneVerified DateTime?
+  dateOfBirth   DateTime?
+  gender        Gender?
+  nationality   String    @default("Nigeria")
+  
+  // Profile
+  profileImage  String?
+  role          UserRole  @default(USER)
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  bookings      Booking[]
+  reviews       Review[]
+  wallet        Wallet?
+  savedItems    SavedItem[]
+  
+  // Address
+  addresses     Address[]
+  
+  // Preferences
+  preferences   UserPreferences?
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// USER PREFERENCES & ADDRESS
+// ============================================
+
+model UserPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  currency              String   @default("NGN")
+  language              String   @default("en")
+  newsletter            Boolean  @default(true)
+  smsNotifications      Boolean  @default(true)
+  emailNotifications    Boolean  @default(true)
+  whatsappNotifications Boolean  @default(false)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        AddressType @default(HOME)
+  street      String
+  city        String
+  lga         String?  // Local Government Area (Nigeria-specific)
+  state       String
+  country     String   @default("Nigeria")
+  postalCode  String?
+  isDefault   Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("addresses")
+}
+
+// ============================================
+// BOOKING SYSTEM
+// ============================================
+
+model Booking {
+  id              String        @id @default(cuid())
+  bookingNumber   String        @unique
+  
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  
+  type            BookingType
+  status          BookingStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  
+  // Pricing
+  subtotal        Decimal       @db.Decimal(10, 2)
+  discount        Decimal       @default(0) @db.Decimal(10, 2)
+  tax             Decimal       @default(0) @db.Decimal(10, 2)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  currency        String        @default("NGN")
+  
+  // Contact Info
+  contactEmail    String
+  contactPhone    String
+  contactName     String
+  
+  // Items
+  flightBookings  FlightBooking[]
+  hotelBookings   HotelBooking[]
+  packageBookings PackageBooking[]
+  
+  // Passengers (for flights/packages)
+  passengers      Passenger[]
+  
+  // Payment
+  payments        Payment[]
+  
+  // Special Requests
+  specialRequests String?
+  
+  // Cancellation
+  cancelledAt     DateTime?
+  cancellationReason String?
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([bookingNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@map("bookings")
+}
+
+model Passenger {
+  id              String       @id @default(cuid())
+  bookingId       String
+  booking         Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  type            PassengerType
+  title           Title
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  nationality     String
+  passportNumber  String?
+  passportExpiry  DateTime?
+  
+  // Special needs
+  specialRequests String?
+  wheelchair      Boolean      @default(false)
+  specialMeal     String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("passengers")
+}
+
+// ============================================
+// FLIGHT BOOKINGS
+// ============================================
+
+model FlightBooking {
+  id              String   @id @default(cuid())
+  bookingId       String
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  // Flight Details
+  flightNumber    String
+  airlineCode     String
+  airlineName     String
+  
+  // Departure
+  departureAirport    String
+  departureCity       String
+  departureTerminal   String?
+  departureGate       String?
+  departureTime       DateTime
+  
+  // Arrival
+  arrivalAirport      String
+  arrivalCity         String
+  arrivalTerminal     String?
+  arrivalGate         String?
+  arrivalTime         DateTime
+  
+  // Flight Info
+  duration        Int      // in minutes
+  aircraft        String?
+  class           TravelClass
+  
+  // Baggage
+  carryOnBaggage  String   @default("7kg")
+  checkedBaggage  String   @default("23kg")
+  
+  // Pricing
+  basePrice       Decimal  @db.Decimal(10, 2)
+  taxes           Decimal  @db.Decimal(10, 2)
+  totalPrice      Decimal  @db.Decimal(10, 2)
+  
+  // Status
+  status          FlightStatus @default(SCHEDULED)
+  
+  // Return flight (for round trips)
+  isReturn        Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("flight_bookings")
+}
+
+// ============================================
+// HOTEL BOOKINGS
+// ============================================
+
+model HotelBooking {
+  id              String   @id @default(cuid())
+  bookingId       String
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  // Hotel Details
+  hotelId         String
+  hotelName       String
+  hotelAddress    String
+  hotelRating     Float?
+  
+  // Room Details
+  roomTypeId      String
+  roomTypeName    String
+  roomDescription String?
+  
+  // Dates
+  checkIn         DateTime
+  checkOut        DateTime
+  nights          Int
+  
+  // Guests
+  adults          Int
+  children        Int
+  
+  // Pricing
+  pricePerNight   Decimal  @db.Decimal(10, 2)
+  totalPrice      Decimal  @db.Decimal(10, 2)
+  
+  // Policies
+  cancellationPolicy String?
+  mealPlan        String?
+  
+  // Status
+  status          HotelStatus @default(CONFIRMED)
+  
+  specialRequests String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("hotel_bookings")
+}
+
+// ============================================
+// TOUR PACKAGES
+// ============================================
+
+model TourPackage {
+  id              String   @id @default(cuid())
+  title           String
+  slug            String   @unique
+  summary         String
+  description     String   @db.Text
+  
+  // Destination
+  destinationId   String
+  destination     Destination @relation(fields: [destinationId], references: [id])
+  
+  // Duration
+  days            Int
+  nights          Int
+  
+  // Media
+  images          String[]
+  
+  // Details
+  highlights      String[]
+  inclusions      String[]
+  exclusions      String[]
+  
+  // Pricing
+  basePrice       Decimal  @db.Decimal(10, 2)
+  currency        String   @default("NGN")
+  pricePerPerson  Boolean  @default(true)
+  
+  // Capacity
+  maxGroupSize    Int
+  minGroupSize    Int      @default(1)
+  
+  // Categorization
+  category        PackageCategory
+  tags            String[]
+  
+  // Rating
+  averageRating   Float    @default(0)
+  reviewCount     Int      @default(0)
+  
+  // Itinerary
+  itineraryDays   ItineraryDay[]
+  
+  // Availability
+  availableDates  PackageDate[]
+  packageBookings PackageBooking[]
+  
+  // Status
+  isActive        Boolean  @default(true)
+  featured        Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([slug])
+  @@index([destinationId])
+  @@index([category])
+  @@index([featured])
+  @@map("tour_packages")
+}
+
+model Destination {
+  id              String        @id @default(cuid())
+  name            String
+  country         String
+  region          String?
+  description     String        @db.Text
+  
+  images          String[]
+  highlights      String[]
+  
+  bestTimeToVisit String?
+  weatherInfo     String?
+  
+  popular         Boolean       @default(false)
+  
+  tourPackages    TourPackage[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([name, country])
+  @@index([popular])
+  @@map("destinations")
+}
+
+model ItineraryDay {
+  id              String      @id @default(cuid())
+  packageId       String
+  package         TourPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  
+  dayNumber       Int
+  title           String
+  description     String      @db.Text
+  activities      String[]
+  
+  meals           Json?       // {breakfast: boolean, lunch: boolean, dinner: boolean}
+  accommodation   String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([packageId, dayNumber])
+  @@map("itinerary_days")
+}
+
+model PackageDate {
+  id              String      @id @default(cuid())
+  packageId       String
+  package         TourPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  
+  startDate       DateTime
+  endDate         DateTime
+  availableSlots  Int
+  priceModifier   Float       @default(0) // percentage adjustment
+  
+  bookings        PackageBooking[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("package_dates")
+}
+
+model PackageBooking {
+  id              String      @id @default(cuid())
+  bookingId       String
+  booking         Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  packageId       String
+  package         TourPackage @relation(fields: [packageId], references: [id])
+  
+  dateId          String
+  packageDate     PackageDate @relation(fields: [dateId], references: [id])
+  
+  travelers       Int
+  totalPrice      Decimal     @db.Decimal(10, 2)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("package_bookings")
+}
+
+// ============================================
+// PAYMENT SYSTEM
+// ============================================
+
+model Payment {
+  id              String        @id @default(cuid())
+  
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  
+  userId          String
+  
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("NGN")
+  
+  status          PaymentStatus @default(PENDING)
+  method          PaymentMethod?
+  
+  // Provider Details
+  provider        PaymentProvider
+  providerRef     String?       // Paystack reference
+  providerData    Json?         // Full provider response
+  
+  // Timestamps
+  paidAt          DateTime?
+  failedAt        DateTime?
+  refundedAt      DateTime?
+  refundAmount    Decimal?      @db.Decimal(10, 2)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([bookingId])
+  @@index([providerRef])
+  @@index([status])
+  @@map("payments")
+}
+
+// ============================================
+// WALLET SYSTEM
+// ============================================
+
+model Wallet {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  balance         Decimal         @default(0) @db.Decimal(10, 2)
+  currency        String          @default("NGN")
+  
+  transactions    WalletTransaction[]
+  
+  isActive        Boolean         @default(true)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id              String                @id @default(cuid())
+  walletId        String
+  wallet          Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  type            WalletTransactionType
+  amount          Decimal               @db.Decimal(10, 2)
+  balanceAfter    Decimal               @db.Decimal(10, 2)
+  
+  description     String
+  reference       String?               // Related booking/payment reference
+  
+  createdAt       DateTime              @default(now())
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@map("wallet_transactions")
+}
+
+// ============================================
+// SAVED ITEMS (WISHLIST)
+// ============================================
+
+model SavedItem {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  itemType        SavedItemType
+  itemId          String       // ID of the saved flight, hotel, or package
+  
+  // Cached details
+  title           String
+  image           String?
+  price           Decimal?     @db.Decimal(10, 2)
+  details         Json?        // Flexible storage for item details
+  
+  createdAt       DateTime     @default(now())
+
+  @@unique([userId, itemType, itemId])
+  @@index([userId])
+  @@map("saved_items")
+}
+
+// ============================================
+// REVIEWS & RATINGS
+// ============================================
+
+model Review {
+  id              String       @id @default(cuid())
+  
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  // Review can be for: hotel, package, flight experience
+  reviewType      String       // 'hotel', 'package', 'flight'
+  itemId          String       // ID of reviewed item
+  
+  rating          Int          // 1-5
+  title           String?
+  comment         String       @db.Text
+  
+  // Verification
+  bookingVerified Boolean      @default(false)
+  
+  // Media
+  images          String[]
+  
+  // Moderation
+  status          ReviewStatus @default(PENDING)
+  
+  // Likes
+  helpfulCount    Int          @default(0)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([reviewType, itemId])
+  @@index([status])
+  @@map("reviews")
+}
+
+// ============================================
+// CMS CONTENT (For Payload CMS)
+// ============================================
+
+model BlogPost {
+  id              String       @id @default(cuid())
+  title           String
+  slug            String       @unique
+  excerpt         String
+  content         String       @db.Text
+  
+  featuredImage   String?
+  images          String[]
+  
+  author          String
+  tags            String[]
+  category        String
+  
+  published       Boolean      @default(false)
+  publishedAt     DateTime?
+  
+  seoTitle        String?
+  seoDescription  String?
+  
+  viewCount       Int          @default(0)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([slug])
+  @@index([published])
+  @@index([category])
+  @@map("blog_posts")
+}
+
+model FAQ {
+  id              String       @id @default(cuid())
+  question        String
+  answer          String       @db.Text
+  category        String
+  order           Int          @default(0)
+  isActive        Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("faqs")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+  AGENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AddressType {
+  HOME
+  WORK
+  OTHER
+}
+
+enum BookingType {
+  FLIGHT
+  HOTEL
+  PACKAGE
+  VISA
+  INSURANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  USSD
+  MOBILE_MONEY
+  QR
+  BANK
+  WALLET
+}
+
+enum PaymentProvider {
+  PAYSTACK
+  FLUTTERWAVE
+  WALLET
+}
+
+enum PassengerType {
+  ADULT
+  CHILD
+  INFANT
+}
+
+enum Title {
+  MR
+  MRS
+  MS
+  DR
+  PROF
+}
+
+enum TravelClass {
+  ECONOMY
+  PREMIUM_ECONOMY
+  BUSINESS
+  FIRST
+}
+
+enum FlightStatus {
+  SCHEDULED
+  DELAYED
+  CANCELLED
+  BOARDING
+  DEPARTED
+  ARRIVED
+}
+
+enum HotelStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum PackageCategory {
+  DOMESTIC
+  INTERNATIONAL
+  HONEYMOON
+  ADVENTURE
+  PILGRIMAGE
+  EDUCATIONAL
+  MEDICAL
+}
+
+enum WalletTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  PAYMENT
+  REFUND
+  BONUS
+}
+
+enum SavedItemType {
+  FLIGHT
+  HOTEL
+  PACKAGE
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
