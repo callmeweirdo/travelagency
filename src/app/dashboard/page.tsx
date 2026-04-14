@@ -1,11 +1,10 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { redirect } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Plane,
@@ -14,20 +13,26 @@ import {
   Heart,
   Settings,
   Calendar,
-  MapPin,
-  ChevronRight,
   Loader2,
 } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect('/login?callbackUrl=/dashboard')
-    },
-  })
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (status === 'loading') {
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      router.push('/login')
+      return
+    }
+    // Mock user data - replace with actual token verification
+    setUser({ name: 'User', email: 'user@example.com' })
+    setLoading(false)
+  }, [router])
+
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-naija-green" />
@@ -50,13 +55,18 @@ export default function DashboardPage() {
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              Welcome, {session?.user?.firstName}
+              Welcome, {user?.name}
             </span>
-            <Link href="/api/auth/signout">
-              <Button variant="outline" size="sm">
-                Sign Out
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem('token')
+                router.push('/')
+              }}
+            >
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
@@ -70,16 +80,11 @@ export default function DashboardPage() {
                 <div className="mb-6 text-center">
                   <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-muted">
                     <span className="text-2xl font-bold text-naija-green">
-                      {session?.user?.firstName?.[0]}
-                      {session?.user?.lastName?.[0]}
+                      {user?.name?.[0] || 'U'}
                     </span>
                   </div>
-                  <h3 className="font-semibold">
-                    {session?.user?.firstName} {session?.user?.lastName}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {session?.user?.email}
-                  </p>
+                  <h3 className="font-semibold">{user?.name}</h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
 
                 <nav className="space-y-2">
@@ -151,8 +156,8 @@ export default function DashboardPage() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="bg-naira-gold/20 flex h-12 w-12 items-center justify-center rounded-lg">
-                      <Wallet className="text-naira-gold h-6 w-6" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100">
+                      <Wallet className="h-6 w-6 text-yellow-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold">₦0</p>
